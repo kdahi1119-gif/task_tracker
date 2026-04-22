@@ -335,6 +335,33 @@
   .dragging { opacity: 0.4; }
   .col-body.drag-over { background: rgba(108,99,255,0.05); border-radius: 12px; }
 
+  /* ── 이메일 자동완성 드롭다운 ── */
+  .email-wrap { position: relative; }
+  .email-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 9px;
+    overflow: hidden;
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .email-dropdown.open { display: block; }
+  .email-option {
+    padding: 9px 13px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.12s;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+  }
+  .email-option:hover { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .email-option .email-name { font-family: 'Noto Sans KR', sans-serif; font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
   * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 </style>
 </head>
@@ -430,7 +457,14 @@
     </div>
     <div class="form-group">
       <label class="form-label">담당자 이메일</label>
-      <input class="form-input" id="f-email" type="email" placeholder="예) jisu@brand.com">
+      <div class="email-wrap">
+        <input class="form-input" id="f-email" type="email" placeholder="예) jisu@brand.com"
+          autocomplete="off"
+          oninput="filterEmailSuggestions(this.value)"
+          onfocus="showEmailSuggestions(this.value)"
+          onblur="hideEmailDropdown()">
+        <div class="email-dropdown" id="email-dropdown"></div>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -834,6 +868,58 @@ async function sendManual(id) {
     toast('❌ 발송 중 오류가 발생했어요.', 'var(--accent2)');
     if (btn) { btn.disabled = false; btn.textContent = '📬 메일 보내기'; }
   }
+}
+
+// ── 이메일 자동완성 ──
+function getSavedEmails() {
+  // 구글 시트에 있는 tasks에서 이메일 + 이름 추출
+  const map = {};
+  tasks.forEach(t => {
+    if (t.email) map[t.email] = t.name || '';
+  });
+  return Object.entries(map).map(([email, name]) => ({ email, name }));
+}
+
+function filterEmailSuggestions(val) {
+  const all = getSavedEmails();
+  const filtered = val
+    ? all.filter(e => e.email.toLowerCase().includes(val.toLowerCase()) || e.name.toLowerCase().includes(val.toLowerCase()))
+    : all;
+  renderEmailDropdown(filtered);
+}
+
+function showEmailSuggestions(val) {
+  filterEmailSuggestions(val);
+}
+
+function hideEmailDropdown() {
+  // 클릭 이벤트가 먼저 발생하도록 딜레이
+  setTimeout(() => {
+    const dd = document.getElementById('email-dropdown');
+    if (dd) dd.classList.remove('open');
+  }, 180);
+}
+
+function renderEmailDropdown(list) {
+  const dd = document.getElementById('email-dropdown');
+  if (!dd) return;
+  if (list.length === 0) { dd.classList.remove('open'); return; }
+
+  dd.innerHTML = '';
+  list.forEach(({ email, name }) => {
+    const item = document.createElement('div');
+    item.className = 'email-option';
+    item.innerHTML = `<span>📧</span><span>${email}</span><span class="email-name">${name}</span>`;
+    item.addEventListener('mousedown', () => {
+      document.getElementById('f-email').value = email;
+      // 담당자명도 자동 입력 (비어있을 때만)
+      const nameField = document.getElementById('f-name');
+      if (nameField && !nameField.value && name) nameField.value = name;
+      dd.classList.remove('open');
+    });
+    dd.appendChild(item);
+  });
+  dd.classList.add('open');
 }
 
 // ── Toast ──
