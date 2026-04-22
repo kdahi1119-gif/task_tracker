@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MD팀 업무 트래커</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #18181f;
+    --surface2: #22222d;
+    --border: #2e2e3d;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --success: #00c896;
+    --warn: #ffb547;
+    --text: #e8e8f0;
+    --text-muted: #7a7a9a;
+    --text-dim: #4a4a6a;
+    --todo-col: #1a1a24;
+    --done-col: #141d1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo span { font-size: 12px; color: var(--text-muted); font-weight: 300; display: block; margin-top: 1px; }
+
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7b73ff; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    padding: 14px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .stat-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat-num { font-weight: 700; font-size: 15px; }
+  .c-todo { color: var(--warn); }
+  .c-done { color: var(--success); }
+  .c-due  { color: var(--accent2); }
+
+  .sync-info {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sync-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Board ── */
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    height: calc(100vh - 115px);
+    overflow: hidden;
+  }
+
+  .column { display: flex; flex-direction: column; overflow: hidden; }
+  .col-todo { background: var(--todo-col); border-right: 1px solid var(--border); }
+  .col-done { background: var(--done-col); }
+
+  .col-header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .col-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+
+  .col-badge {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 900;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-todo { background: rgba(255,181,71,0.15); color: var(--warn); }
+  .badge-done { background: rgba(0,200,150,0.15); color: var(--success); }
+
+  .col-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .col-body::-webkit-scrollbar { width: 4px; }
+  .col-body::-webkit-scrollbar-track { background: transparent; }
+  .col-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── Task Card ── */
+  .task-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    transition: all 0.22s cubic-bezier(.25,.8,.25,1);
+    position: relative;
+    overflow: hidden;
+    animation: cardIn 0.25s ease;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .task-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 3px 0 0 3px;
+  }
+  .task-card.todo::before { background: var(--warn); }
+  .task-card.done::before { background: var(--success); }
+  .task-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,99,255,0.15); }
+  .task-card.loading { opacity: 0.5; pointer-events: none; }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .brand-tag {
+    font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 5px;
+    background: rgba(108,99,255,0.15); color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+  .card-actions { display: flex; gap: 4px; }
+  .card-btn {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .card-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .card-btn.danger:hover { background: var(--accent2); border-color: var(--accent2); }
+
+  .task-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 10px; }
+  .task-meta { display: flex; flex-direction: column; gap: 5px; }
+  .meta-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); }
+  .meta-icon { font-size: 11px; width: 14px; text-align: center; }
+  .meta-row a { color: var(--accent); text-decoration: none; font-family: 'DM Mono', monospace; font-size: 11px; }
+  .meta-row a:hover { text-decoration: underline; }
+
+  .freq-badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; font-family: 'DM Mono', monospace; }
+  .freq-daily    { background: rgba(255,101,132,0.15); color: var(--accent2); }
+  .freq-weekly   { background: rgba(108,99,255,0.15);  color: var(--accent); }
+  .freq-biweekly { background: rgba(255,181,71,0.15);  color: var(--warn); }
+  .freq-monthly  { background: rgba(0,200,150,0.15);   color: var(--success); }
+
+  .card-footer {
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .due-info { font-size: 11px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+  .due-info.overdue { color: var(--accent2); font-weight: 600; }
+  .due-info.today   { color: var(--warn); font-weight: 600; }
+
+  .deadline-bar {
+    margin-top: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .deadline-ok      { background: rgba(0,200,150,0.1);  color: var(--success); border: 1px solid rgba(0,200,150,0.2); }
+  .deadline-soon    { background: rgba(255,181,71,0.1);  color: var(--warn);    border: 1px solid rgba(255,181,71,0.2); }
+  .deadline-today   { background: rgba(255,181,71,0.18); color: var(--warn);    border: 1px solid rgba(255,181,71,0.4); }
+  .deadline-overdue { background: rgba(255,101,132,0.1); color: var(--accent2); border: 1px solid rgba(255,101,132,0.25); }
+
+  .mail-btn {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 7px;
+    background: rgba(108,99,255,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(108,99,255,0.3);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .mail-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: translateY(-1px); }
+  .mail-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 48px 24px;
+    color: var(--text-dim); text-align: center; font-size: 13px;
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 4px; }
+
+  /* ── Loading skeleton ── */
+  .skeleton {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .skel-line {
+    height: 12px; border-radius: 6px;
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    width: 100%; max-width: 480px;
+    padding: 28px;
+    transform: translateY(20px);
+    transition: transform 0.25s cubic-bezier(.25,.8,.25,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 22px; display: flex; align-items: center; gap: 10px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 7px; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 13px;
+    font-size: 14px; font-family: inherit; color: var(--text); outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface2); }
+  .form-textarea { resize: vertical; min-height: 70px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+    animation: slideIn 0.25s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* drag */
+  .dragging { opacity: 0.4; }
+  .col-body.drag-over { background: rgba(108,99,255,0.05); border-radius: 12px; }
+
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📋</div>
+    <div>
+      <h1>MD팀 업무 트래커</h1>
+      <span>구글 시트 연동 · 자동 이메일 발송</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="loadTasks()">🔄 새로고침</button>
+    <button class="btn btn-primary" onclick="openModal()">+ 새 업무 블록</button>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-dot" style="background:var(--warn)"></div>
+    해야할 일: <strong class="stat-num c-todo" id="stat-todo">-</strong>건
+  </div>
+  <div class="stat-item">
+    <div class="stat-dot" style="background:var(--success)"></div>
+    해결된 일: <strong class="stat-num c-done" id="stat-done">-</strong>건
+  </div>
+  <div class="stat-item">
+    <div class="stat-dot" style="background:var(--accent2)"></div>
+    오늘 자동발송 대상: <strong class="stat-num c-due" id="stat-due">-</strong>건
+  </div>
+  <div class="sync-info">
+    <div class="sync-dot"></div>
+    <span id="sync-time">구글 시트 연동 중...</span>
+  </div>
+</div>
+
+<div class="board">
+  <div class="column col-todo">
+    <div class="col-header">
+      <div class="col-title">
+        <div class="col-badge badge-todo" id="badge-todo">-</div>
+        해야할 일
+      </div>
+      <span style="font-size:12px;color:var(--text-dim)">미해결 업무</span>
+    </div>
+    <div class="col-body" id="todo-col"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'todo')">
+      <div class="skeleton"><div class="skel-line" style="width:40%"></div><div class="skel-line" style="width:80%"></div><div class="skel-line" style="width:60%"></div></div>
+      <div class="skeleton"><div class="skel-line" style="width:35%"></div><div class="skel-line" style="width:90%"></div><div class="skel-line" style="width:50%"></div></div>
+    </div>
+  </div>
+
+  <div class="column col-done">
+    <div class="col-header">
+      <div class="col-title">
+        <div class="col-badge badge-done" id="badge-done">-</div>
+        해결된 일
+      </div>
+      <span style="font-size:12px;color:var(--text-dim)">MD팀 확인 완료</span>
+    </div>
+    <div class="col-body" id="done-col"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'done')">
+      <div class="empty-state" id="done-empty" style="display:none">
+        <div class="empty-icon">✅</div>
+        <div>해결된 업무가 여기에 쌓여요</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-icon">📦</span>
+      <span id="modal-label">새 업무 블록 추가</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">업무 내용</label>
+      <textarea class="form-textarea" id="f-title" placeholder="예) 신규 상품 MD 검토 요청, 프로모션 상품 확인 등"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">브랜드명</label>
+        <input class="form-input" id="f-brand" placeholder="예) ZARA">
+      </div>
+      <div class="form-group">
+        <label class="form-label">담당자명</label>
+        <input class="form-input" id="f-name" placeholder="예) 김지수">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">담당자 이메일</label>
+      <input class="form-input" id="f-email" type="email" placeholder="예) jisu@brand.com">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">메일 발송 주기</label>
+        <select class="form-select" id="f-freq">
+          <option value="daily">매일</option>
+          <option value="weekly" selected>매주</option>
+          <option value="biweekly">격주</option>
+          <option value="monthly">매월</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">메일 제목</label>
+        <input class="form-input" id="f-subject" placeholder="기본값: 업무 확인 요청">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">마감 기한 <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(선택)</span></label>
+      <input class="form-input" id="f-deadline" type="date">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">취소</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveTask()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbwsWFG1E1vjHhTeR_DWZPVSJg8MD1ze1NYyxkNMbLJwg9vgBJRpXCucHR-JkfeUnzk3tQ/exec';
+
+const FREQ_LABEL = { daily:'매일', weekly:'매주', biweekly:'격주', monthly:'매월' };
+const FREQ_DAYS  = { daily:1, weekly:7, biweekly:14, monthly:30 };
+
+let tasks = [];
+let editingId = null;
+let dragId = null;
+
+// ── API ──
+async function apiFetch(params) {
+  const url = API + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function apiPost(body) {
+  const res = await fetch(API, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ── Load ──
+async function loadTasks() {
+  document.getElementById('sync-time').textContent = '동기화 중...';
+  try {
+    const data = await apiFetch({ action: 'getTasks' });
+    tasks = Array.isArray(data) ? data : [];
+    render();
+    const now = new Date();
+    document.getElementById('sync-time').textContent =
+      `마지막 동기화 ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  } catch(e) {
+    toast('❌ 데이터를 불러오지 못했어요. 네트워크를 확인해주세요.', 'var(--accent2)');
+    document.getElementById('sync-time').textContent = '연결 실패';
+  }
+}
+
+// ── Render ──
+function render() {
+  const todoList = tasks.filter(t => t.status === 'todo');
+  const doneList = tasks.filter(t => t.status === 'done');
+  const dueCount = todoList.filter(t => isDue(t)).length;
+
+  document.getElementById('stat-todo').textContent = todoList.length;
+  document.getElementById('stat-done').textContent = doneList.length;
+  document.getElementById('stat-due').textContent  = dueCount;
+  document.getElementById('badge-todo').textContent = todoList.length;
+  document.getElementById('badge-done').textContent = doneList.length;
+
+  renderCol('todo-col', todoList, 'todo');
+  renderCol('done-col', doneList, 'done');
+}
+
+function renderCol(colId, list, status) {
+  const col = document.getElementById(colId);
+  col.innerHTML = '';
+
+  if (list.length === 0) {
+    col.innerHTML = status === 'todo'
+      ? `<div class="empty-state"><div class="empty-icon">📝</div><div>업무 블록을 추가해보세요</div><div style="font-size:11px;margin-top:4px">오른쪽 상단 [+ 새 업무 블록] 클릭</div></div>`
+      : `<div class="empty-state"><div class="empty-icon">✅</div><div>해결된 업무가 여기에 쌓여요</div></div>`;
+    return;
+  }
+
+  list.forEach(task => col.appendChild(buildCard(task, status)));
+}
+
+function buildCard(task, status) {
+  const card = document.createElement('div');
+  card.className = `task-card ${status}`;
+  card.draggable = true;
+  card.dataset.id = task.id;
+
+  // ── 드래그 이벤트 ──
+  card.addEventListener('dragstart', e => {
+    dragId = task.id;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', task.id);
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    dragId = null;
+  });
+
+  const due = isDue(task);
+  const dueText = getDueText(task);
+  const freqClass = { daily:'freq-daily', weekly:'freq-weekly', biweekly:'freq-biweekly', monthly:'freq-monthly' }[task.freq] || 'freq-weekly';
+
+  // ── 카드 상단 ──
+  const cardTop = document.createElement('div');
+  cardTop.className = 'card-top';
+
+  const brandTag = document.createElement('div');
+  brandTag.className = 'brand-tag';
+  brandTag.textContent = task.brand || '';
+
+  const cardActions = document.createElement('div');
+  cardActions.className = 'card-actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'card-btn';
+  editBtn.title = '수정';
+  editBtn.textContent = '✎';
+  editBtn.addEventListener('click', e => { e.stopPropagation(); openEdit(task.id); });
+
+  const moveBtn = document.createElement('button');
+  moveBtn.className = 'card-btn';
+  if (status === 'todo') {
+    moveBtn.title = '해결됨으로 이동';
+    moveBtn.textContent = '✓';
+    moveBtn.addEventListener('click', e => { e.stopPropagation(); moveTask(task.id, 'done'); });
+  } else {
+    moveBtn.title = '다시 해야할 일로';
+    moveBtn.textContent = '↩';
+    moveBtn.addEventListener('click', e => { e.stopPropagation(); moveTask(task.id, 'todo'); });
+  }
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'card-btn danger';
+  delBtn.title = '삭제';
+  delBtn.textContent = '✕';
+  delBtn.addEventListener('click', e => { e.stopPropagation(); deleteTask(task.id); });
+
+  cardActions.append(editBtn, moveBtn, delBtn);
+  cardTop.append(brandTag, cardActions);
+
+  // ── 제목 ──
+  const title = document.createElement('div');
+  title.className = 'task-title';
+  title.textContent = task.title || '';
+
+  // ── 메타 ──
+  const meta = document.createElement('div');
+  meta.className = 'task-meta';
+  meta.innerHTML = `
+    <div class="meta-row"><span class="meta-icon">👤</span><span>${esc(task.name)}</span></div>
+    <div class="meta-row"><span class="meta-icon">📧</span><a href="mailto:${esc(task.email)}">${esc(task.email)}</a></div>
+    <div class="meta-row"><span class="meta-icon">🔁</span><span class="freq-badge ${freqClass}">${FREQ_LABEL[task.freq] || task.freq}</span><span>자동 발송</span></div>
+  `;
+
+  card.append(cardTop, title, meta);
+
+  if (status === 'todo') {
+    // 마감 기한 바
+    if (task.deadline) {
+      const dlBar = document.createElement('div');
+      dlBar.innerHTML = getDeadlineHTML(task);
+      if (dlBar.firstElementChild) card.appendChild(dlBar.firstElementChild);
+    }
+    // 푸터
+    const footer = document.createElement('div');
+    footer.className = 'card-footer';
+
+    const dueInfo = document.createElement('div');
+    dueInfo.className = 'due-info' + (due ? ' today' : '');
+    dueInfo.textContent = dueText;
+
+    const mailBtn = document.createElement('button');
+    mailBtn.className = 'mail-btn';
+    mailBtn.id = 'mailbtn-' + task.id;
+    mailBtn.textContent = '📬 메일 보내기';
+    mailBtn.addEventListener('click', e => { e.stopPropagation(); sendManual(task.id); });
+
+    footer.append(dueInfo, mailBtn);
+    card.appendChild(footer);
+  } else {
+    const footer = document.createElement('div');
+    footer.className = 'card-footer';
+    footer.innerHTML = '<div class="due-info">✅ 해결 완료 · 자동 발송 중단됨</div>';
+    card.appendChild(footer);
+  }
+
+  return card;
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Deadline ──
+function getDeadlineHTML(task) {
+  if (!task.deadline) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dl = new Date(task.deadline); dl.setHours(0,0,0,0);
+  const diff = Math.round((dl - today) / 86400000);
+
+  let cls, icon, text;
+  if (diff > 7)       { cls = 'deadline-ok';      icon = '📅'; text = `마감까지 ${diff}일 남음 (${task.deadline})`; }
+  else if (diff > 0)  { cls = 'deadline-soon';    icon = '⏰'; text = `마감까지 ${diff}일 남음! (${task.deadline})`; }
+  else if (diff === 0){ cls = 'deadline-today';   icon = '🚨'; text = `오늘이 마감일! (${task.deadline})`; }
+  else                { cls = 'deadline-overdue'; icon = '🔴'; text = `마감 ${Math.abs(diff)}일 초과 (${task.deadline})`; }
+
+  return `<div class="deadline-bar ${cls}">${icon} ${text}</div>`;
+}
+
+// ── Due logic ──
+function isDue(task) {
+  if (task.status === 'done') return false;
+  if (!task.lastSent) return true;
+  const diff = Math.floor((new Date() - new Date(task.lastSent)) / 86400000);
+  return diff >= (FREQ_DAYS[task.freq] || 7);
+}
+
+function getDueText(task) {
+  if (!task.lastSent) return '⚡ 아직 발송 안 됨 (오늘 자동 발송 예정)';
+  const diff = Math.floor((new Date() - new Date(task.lastSent)) / 86400000);
+  const days = FREQ_DAYS[task.freq] || 7;
+  if (diff >= days) return `⚠️ 오늘 자동 발송 예정 (${diff}일 경과)`;
+  return `다음 자동 발송까지 ${days - diff}일`;
+}
+
+// ── Actions ──
+let movingIds = new Set(); // 중복 요청 방지
+
+async function moveTask(id, toStatus) {
+  if (movingIds.has(id)) return; // 이미 처리 중이면 무시
+  movingIds.add(id);
+
+  const t = tasks.find(t => t.id === id);
+  if (!t) { movingIds.delete(id); return; }
+
+  const prevStatus = t.status;
+  t.status = toStatus;
+  render(); // UI 즉시 반영
+
+  try {
+    await apiPost({ action: 'updateTask', task: { id, status: toStatus } });
+    const msg = toStatus === 'done' ? '✅ 해결됨으로 이동했어요!' : '↩ 해야할 일로 되돌렸어요.';
+    toast(msg, toStatus === 'done' ? 'var(--success)' : 'var(--warn)');
+  } catch {
+    toast('❌ 저장 실패. 다시 시도해주세요.', 'var(--accent2)');
+    t.status = prevStatus; // 실패 시 원복
+    render();
+  } finally {
+    movingIds.delete(id); // 완료 후 잠금 해제
+  }
+}
+
+async function deleteTask(id) {
+  if (!confirm('이 업무 블록을 삭제할까요?')) return;
+  const prev = [...tasks];
+  tasks = tasks.filter(t => t.id !== id);
+  render();
+  try {
+    await apiPost({ action: 'deleteTask', id });
+    toast('🗑 업무 블록을 삭제했어요.', 'var(--accent2)');
+  } catch {
+    toast('❌ 삭제 실패. 다시 시도해주세요.', 'var(--accent2)');
+    tasks = prev; render();
+  }
+}
+
+// ── Drag ──
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  // 자식 요소로 이동할 때 오발동 방지
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+function onDrop(e, status) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const id = dragId || e.dataTransfer.getData('text/plain');
+  if (!id) return;
+  const t = tasks.find(t => t.id === id);
+  if (t && t.status !== status) moveTask(id, status);
+}
+
+// ── Modal ──
+function openModal() {
+  editingId = null;
+  document.getElementById('modal-label').textContent = '새 업무 블록 추가';
+  document.getElementById('modal-icon').textContent = '📦';
+  ['f-title','f-brand','f-name','f-email','f-subject','f-deadline'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-freq').value = 'weekly';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-title').focus(), 200);
+}
+
+function openEdit(id) {
+  editingId = id;
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('modal-label').textContent = '업무 블록 수정';
+  document.getElementById('modal-icon').textContent = '✎';
+  document.getElementById('f-title').value   = t.title   || '';
+  document.getElementById('f-brand').value   = t.brand   || '';
+  document.getElementById('f-name').value    = t.name    || '';
+  document.getElementById('f-email').value   = t.email   || '';
+  document.getElementById('f-freq').value    = t.freq    || 'weekly';
+  document.getElementById('f-subject').value = t.subject || '';
+  document.getElementById('f-deadline').value = t.deadline || '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target.id === 'modal-overlay') closeModal(); }
+
+async function saveTask() {
+  const title   = document.getElementById('f-title').value.trim();
+  const brand   = document.getElementById('f-brand').value.trim();
+  const name    = document.getElementById('f-name').value.trim();
+  const email   = document.getElementById('f-email').value.trim();
+  const freq    = document.getElementById('f-freq').value;
+  const subject = document.getElementById('f-subject').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+
+  if (!title || !brand || !name || !email) {
+    toast('⚠️ 업무 내용, 브랜드, 담당자, 이메일은 필수예요.', 'var(--accent2)');
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+
+  try {
+    if (editingId) {
+      await apiPost({ action: 'updateTask', task: { id: editingId, title, brand, name, email, freq, subject, deadline } });
+      const t = tasks.find(t => t.id === editingId);
+      Object.assign(t, { title, brand, name, email, freq, subject, deadline });
+      toast('✏️ 업무를 수정했어요.', 'var(--accent)');
+    } else {
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      const task = { id, title, brand, name, email, freq, subject, deadline, status: 'todo', lastSent: '' };
+      await apiPost({ action: 'addTask', task });
+      tasks.unshift(task);
+      toast('📦 새 업무 블록을 추가했어요!', 'var(--accent)');
+    }
+    render(); closeModal();
+  } catch {
+    toast('❌ 저장 실패. 다시 시도해주세요.', 'var(--accent2)');
+  } finally {
+    btn.disabled = false; btn.textContent = '저장';
+  }
+}
+
+
+// ── 수동 메일 발송 ──
+async function sendManual(id) {
+  const btn = document.getElementById('mailbtn-' + id);
+  if (btn) { btn.disabled = true; btn.textContent = '발송 중...'; }
+  try {
+    const res = await apiPost({ action: 'sendManual', id });
+    if (res.success) {
+      // lastSent 로컬 업데이트
+      const t = tasks.find(t => t.id === id);
+      if (t) t.lastSent = new Date().toISOString().split('T')[0];
+      render();
+      toast('📬 메일을 발송했어요!', 'var(--accent)');
+    } else {
+      toast('❌ 발송 실패: ' + (res.error || '알 수 없는 오류'), 'var(--accent2)');
+      if (btn) { btn.disabled = false; btn.textContent = '📬 메일 보내기'; }
+    }
+  } catch(e) {
+    toast('❌ 발송 중 오류가 발생했어요.', 'var(--accent2)');
+    if (btn) { btn.disabled = false; btn.textContent = '📬 메일 보내기'; }
+  }
+}
+
+// ── Toast ──
+function toast(msg, color = 'var(--accent)') {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span style="color:${color};font-size:16px">●</span> ${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── Init ──
+loadTasks();
+setInterval(loadTasks, 5 * 60 * 1000); // 5분마다 자동 동기화
+</script>
+</body>
+</html>
